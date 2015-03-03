@@ -3,8 +3,8 @@ from flask import current_app, flash, abort
 from flask_security.core import current_user
 from willow.app import willow_signals, is_admin
 from willow.models import db
+from willow.models.user import Role
 from willow.models.mixins import WLWMixin
-from flask.ext.security import RoleMixin, UserMixin
 from sqlalchemy import and_, or_
 from sqlalchemy.ext.declarative import declared_attr
 
@@ -31,11 +31,7 @@ class UTProfile(db.Model):
         return self.user.is_active()
 
     def is_admin(self):
-        return self.has_role('admin')
-
-    def has_role(self, rolename):
-        # TODO: for testing
-        return True
+        return self.user.has_role('UT Administrator')
 
     def is_patron(self):
         from datetime import datetime
