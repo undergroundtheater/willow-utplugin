@@ -13,9 +13,9 @@ from flask.ext.classy import FlaskView, route
 from werkzeug.utils import import_string
 from wtforms.ext.sqlalchemy.orm import model_form
 from willow.models import db, Chapter, Venue, Role, User
-from willow.forms import WLWForm, NewChapterForm, NewVenueForm, NewRoleForm
 from willow.blueprints.admin import ModelAdminView
-from utplugin.models import Subscription
+from utplugin.models import Subscription, UTProfile
+from utplugin.forms import UTProfileForm
 
 import os
 
@@ -31,9 +31,6 @@ class AdminSubscriptionView(ModelAdminView):
 
     def get_form(self, **kwargs):
         pass
-
-    def get_new_view_name(self):
-        return "%s:index" % (self.view_base(),)
 
     def view_base(self):
         return "utplugin.AdminSubscriptionView"
@@ -58,5 +55,45 @@ class AdminUserListView(ModelAdminView):
                 model_title=self.wlw_title,
                 secondary="")
 
+class HomeView(FlaskView):
+    pass
+        
+class ProfileView(ModelAdminView):
+    decorators = [login_required]
+    route_base="/profile"
+    wlw_model = UTProfile
+    wlw_only = ['name', 'primary_chapter']
+    wlw_title = 'Profile'
+    wlw_key = 'profile'
+    wlw_form = UTProfileForm
+    default_template = "utplugin/profile_index.html"
+
+    @route('/')
+    def index(self):
+        if not getattr(current_user, 'wlw_profile', False):
+            return redirect(url_for(self.get_new_view_name()))
+        return render_template(self.get_template())
+
+    def post(self):
+        if getattr(current_user, 'wlw_profile', None):
+            flash("%s '%s' already exists." % (self.wlw_title, current_user.wlw_profile.name))
+            return redirect(url_for(self.get_redirect_view_name()))
+
+        form = self.get_form()()
+        if form.validate_on_submit():
+            obj = self.wlw_model()
+            form.populate_obj(obj)
+            obj.user = current_user
+            db.session.add(obj)
+            db.session.commit()
+
+            flash("%s '%s' has been created." % (self.wlw_title, obj.name))
+
+            return redirect(url_for(self.get_redirect_view_name()))
+
+        return render_template(self.get_template('add'), form=form)
+
+
 AdminUserListView.register(ut_blueprint)
 AdminSubscriptionView.register(ut_blueprint)
+ProfileView.register(ut_blueprint)
